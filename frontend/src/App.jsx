@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
+const API =
+  "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
+
 function App() {
   const [jobText, setJobText] = useState("");
   const [result, setResult] = useState(null);
@@ -11,18 +14,13 @@ function App() {
   const [error, setError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
 
-  // Screenshot OCR states
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [extractedText, setExtractedText] = useState("");
   const [ocrLoading, setOcrLoading] = useState(false);
 
-const API = "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
-
-
   async function loadHistory() {
     setHistoryLoading(true);
-    setHistoryMessage("");
 
     try {
       const response = await fetch(`${API}/history`);
@@ -32,11 +30,10 @@ const API = "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
       }
 
       const data = await response.json();
-      setHistory(data);
-      setHistoryMessage("History updated successfully.");
+      setHistory(Array.isArray(data) ? data : []);
     } catch {
       setError(
-        "Backend connect avvaledu. Backend server run avutundo check cheyyi."
+        "History load avvaledu. Backend server check cheyyi."
       );
     } finally {
       setHistoryLoading(false);
@@ -66,85 +63,19 @@ const API = "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
       setResult(null);
       setHistoryMessage("All scan history cleared.");
     } catch {
-      setError("History clear cheyyalekapoyam. Backend check cheyyi.");
-    }
-  }
-
-  function handleImageChange(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) return;
-
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
-
-    if (!allowedTypes.includes(file.type)) {
-      setError("PNG, JPG, JPEG, or WEBP image matrame upload cheyyi.");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image size 5 MB kanna takkuva undali.");
-      return;
-    }
-
-    setError("");
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    setExtractedText("");
-    setResult(null);
-  }
-
-  async function extractTextFromImage() {
-    if (!imageFile) {
-      setError("Mundu job screenshot upload cheyyi.");
-      return;
-    }
-
-    setOcrLoading(true);
-    setError("");
-    setHistoryMessage("");
-    setExtractedText("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", imageFile);
-
-      const response = await fetch(`${API}/extract-text`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.detail || data.error || "Text extraction failed."
-        );
-      }
-
-      setExtractedText(data.text || "");
-
-      if (!data.text?.trim()) {
-        throw new Error("Screenshot nunchi readable text dorakaledu.");
-      }
-
-      setHistoryMessage(
-        "Text extracted successfully! Analyze cheyyadaniki mundu review cheyyi."
-      );
-    } catch (err) {
       setError(
-        err.message ||
-          "OCR failed. Backend lo Tesseract OCR configured undho check cheyyi."
+        "History clear cheyyalekapoyam. Backend check cheyyi."
       );
-    } finally {
-      setOcrLoading(false);
     }
   }
 
   async function analyzeText(text) {
-    if (!text.trim() || text.trim().length < 5) {
-      setError("Please enter at least 5 characters of job description.");
+    const cleanText = (text || "").trim();
+
+    if (cleanText.length < 5) {
+      setError(
+        "Please enter at least 5 characters of job description."
+      );
       return;
     }
 
@@ -156,20 +87,42 @@ const API = "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
     try {
       const response = await fetch(`${API}/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_text: text.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          job_text: cleanText,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        throw new Error(data.detail || data.error || "Analysis failed");
+        throw new Error(
+          data.detail || data.error || "Analysis failed"
+        );
       }
 
       setResult(data);
-      await loadHistory();
+      setHistoryMessage("Job analysis completed successfully.");
+
+      // Refresh history without losing the analysis result
+      try {
+        const historyResponse = await fetch(`${API}/history`);
+
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          setHistory(
+            Array.isArray(historyData) ? historyData : []
+          );
+        }
+      } catch {
+        // Analysis result remains visible if history fails.
+      }
     } catch (err) {
-      setError(err.message || "Could not connect to backend.");
+      setError(
+        err.message || "Could not connect to backend."
+      );
     } finally {
       setLoading(false);
     }
@@ -184,6 +137,95 @@ const API = "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
     await analyzeText(extractedText);
   }
 
+  // Uploading an image automatically starts OCR and analysis.
+  function handleImageChange(event) {
+    const file = event.target.files?.[0];
+
+    // Allow selecting the same file again later.
+    event.target.value = "";
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError(
+        "PNG, JPG, JPEG, or WEBP image matrame upload cheyyi."
+      );
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size 5 MB kanna takkuva undali.");
+      return;
+    }
+
+    setError("");
+    setHistoryMessage("");
+    setResult(null);
+    setExtractedText("");
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+
+    // Pass the selected file directly; don't depend on state updating.
+    extractTextFromImage(file);
+  }
+
+  async function extractTextFromImage(fileToExtract = imageFile) {
+    if (!fileToExtract) {
+      setError("Mundu job screenshot upload cheyyi.");
+      return;
+    }
+
+    setOcrLoading(true);
+    setError("");
+    setHistoryMessage("Reading screenshot...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", fileToExtract);
+
+      const response = await fetch(`${API}/extract-text`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || data.error || "Text extraction failed."
+        );
+      }
+
+      const text = (data.text || "").trim();
+
+      if (text.length < 5) {
+        throw new Error(
+          "Readable job text dorakaledu. Clear screenshot upload cheyyi."
+        );
+      }
+
+      setExtractedText(text);
+      setHistoryMessage("Text extracted. Analyzing job...");
+
+      // Automatically analyze the OCR result.
+      await analyzeText(text);
+    } catch (err) {
+      setError(
+        err.message ||
+          "OCR failed. Backend lo Tesseract OCR check cheyyi."
+      );
+      setHistoryMessage("");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
   function downloadReport() {
     if (!result) return;
 
@@ -195,7 +237,9 @@ Date: ${new Date().toLocaleString()}
 
 Risk Level: ${result.risk_level}
 Model Classification: ${result.label}
-Model Fake-Job Score: ${(result.model_score * 100).toFixed(1)}%
+Model Fake-Job Score: ${(
+      (result.model_score || 0) * 100
+    ).toFixed(1)}%
 
 WARNING SIGNALS:
 ${(result.warning_signals || [])
@@ -207,7 +251,7 @@ ${(result.verification_tips || [])
   .map((item) => "- " + item)
   .join("\n")}
 
-Notice: ${result.notice}
+Notice: ${result.notice || ""}
 
 This is a preliminary AI assessment, not proof of fraud.
 Always verify the employer independently.
@@ -234,9 +278,13 @@ Always verify the employer independently.
 
   useEffect(() => {
     return () => {
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
     };
   }, [imagePreview]);
+
+  const processing = loading || ocrLoading;
 
   return (
     <main className="app">
@@ -249,19 +297,24 @@ Always verify the employer independently.
       </header>
 
       <section className="hero">
-        <span className="eyebrow">YOUR CAREER. YOUR SAFETY.</span>
+        <span className="eyebrow">
+          YOUR CAREER. YOUR SAFETY.
+        </span>
 
         <h1>
           Is that job offer <span>really genuine?</span>
         </h1>
 
         <p className="subtitle">
-          Analyze job and internship descriptions for suspicious signals
-          before you apply.
+          Analyze job and internship descriptions for
+          suspicious signals before you apply.
         </p>
 
+        {/* Manual text analysis */}
         <form className="analyzer" onSubmit={analyzeJob}>
-          <label htmlFor="job">Paste job or internship description</label>
+          <label htmlFor="job">
+            Paste job or internship description
+          </label>
 
           <textarea
             id="job"
@@ -272,16 +325,21 @@ Always verify the employer independently.
             minLength={5}
           />
 
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={processing}>
             {loading ? "Analyzing..." : "Analyze Job →"}
           </button>
         </form>
 
-        <section className="analyzer" style={{ marginTop: "24px" }}>
+        {/* Automatic screenshot OCR and analysis */}
+        <section
+          className="analyzer"
+          style={{ marginTop: "24px" }}
+        >
           <h2>Analyze Job Screenshot</h2>
+
           <p className="subtitle">
-            Upload a screenshot of a job posting. OCR will extract its text
-            so you can review and analyze it.
+            Upload a job screenshot. Text extraction and
+            fake-job analysis will start automatically.
           </p>
 
           <label htmlFor="jobScreenshot">
@@ -293,11 +351,13 @@ Always verify the employer independently.
             type="file"
             accept="image/png,image/jpeg,image/webp"
             onChange={handleImageChange}
+            disabled={processing}
           />
 
           {imagePreview && (
             <div style={{ marginTop: "16px" }}>
               <p>Screenshot preview</p>
+
               <img
                 src={imagePreview}
                 alt="Uploaded job posting screenshot"
@@ -313,10 +373,14 @@ Always verify the employer independently.
 
               <button
                 type="button"
-                onClick={extractTextFromImage}
-                disabled={ocrLoading || loading}
+                onClick={() => extractTextFromImage(imageFile)}
+                disabled={processing || !imageFile}
               >
-                {ocrLoading ? "Extracting Text..." : "Extract Text from Screenshot"}
+                {ocrLoading
+                  ? "Extracting Text..."
+                  : loading
+                    ? "Analyzing Job..."
+                    : "Extract & Analyze Again"}
               </button>
             </div>
           )}
@@ -330,7 +394,9 @@ Always verify the employer independently.
               <textarea
                 id="extractedText"
                 value={extractedText}
-                onChange={(event) => setExtractedText(event.target.value)}
+                onChange={(event) =>
+                  setExtractedText(event.target.value)
+                }
                 rows={10}
                 style={{ marginTop: "8px" }}
               />
@@ -338,7 +404,7 @@ Always verify the employer independently.
               <button
                 type="button"
                 onClick={analyzeExtractedText}
-                disabled={loading || ocrLoading || extractedText.trim().length < 5}
+                disabled={processing || extractedText.trim().length < 5}
               >
                 {loading ? "Analyzing..." : "Analyze Extracted Text →"}
               </button>
@@ -346,13 +412,29 @@ Always verify the employer independently.
           )}
         </section>
 
+        {processing && (
+          <p role="status" aria-live="polite">
+            {ocrLoading
+              ? "Screenshot text extract chestunnam..."
+              : "Job details analyze chestunnam..."}
+            Please wait.
+          </p>
+        )}
+
         {error && <p className="error">{error}</p>}
 
+        {historyMessage && <p>{historyMessage}</p>}
+
+        {/* Analysis result */}
         {result && (
           <section className="result">
             <h2>Analysis Result</h2>
 
-            <p className={result.risk_level === "High" ? "high" : "low"}>
+            <p
+              className={
+                result.risk_level === "High" ? "high" : "low"
+              }
+            >
               {result.risk_level} Risk
             </p>
 
@@ -360,12 +442,12 @@ Always verify the employer independently.
 
             <p>
               Model fake-job score:{" "}
-              {(result.model_score * 100).toFixed(1)}%
+              {((result.model_score || 0) * 100).toFixed(1)}%
             </p>
 
             <p className="notice">
-              Higher scores indicate stronger signals associated with fake
-              jobs. This score is not a guarantee of fraud.
+              Higher scores indicate stronger signals associated
+              with fake jobs. This score is not a guarantee of fraud.
             </p>
 
             <h3>Warning Signals</h3>
@@ -390,6 +472,7 @@ Always verify the employer independently.
           </section>
         )}
 
+        {/* Scan history */}
         <section className="history">
           <div className="history-heading">
             <div>
@@ -416,25 +499,32 @@ Always verify the employer independently.
             </div>
           </div>
 
-          {historyMessage && <p>{historyMessage}</p>}
-
           {history.length === 0 ? (
             <p>No scans yet. Analyze a job to see it here.</p>
           ) : (
-            history.map((item) => (
-              <article className="history-item" key={item.id}>
+            history.map((item, index) => (
+              <article
+                className="history-item"
+                key={item.id ?? `${item.created_at}-${index}`}
+              >
                 <div>
                   <strong>
-                    {item.job_text.length > 90
+                    {(item.job_text || "").length > 90
                       ? item.job_text.slice(0, 90) + "..."
                       : item.job_text}
                   </strong>
 
-                  <p>{new Date(item.created_at).toLocaleString()}</p>
+                  <p>
+                    {item.created_at
+                      ? new Date(item.created_at).toLocaleString()
+                      : ""}
+                  </p>
                 </div>
 
                 <span
-                  className={item.risk_level === "High" ? "high" : "low"}
+                  className={
+                    item.risk_level === "High" ? "high" : "low"
+                  }
                 >
                   {item.risk_level}
                 </span>
@@ -444,7 +534,8 @@ Always verify the employer independently.
         </section>
 
         <p className="disclaimer">
-          AI screening is preliminary. Always verify employers independently.
+          AI screening is preliminary. Always verify employers
+          independently.
         </p>
       </section>
     </main>
