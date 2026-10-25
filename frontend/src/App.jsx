@@ -10,11 +10,18 @@ function App() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
-const API = "https://innovatrix-fakejobdetector.onrender.com";
+
+  // Screenshot OCR states
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [extractedText, setExtractedText] = useState("");
+  const [ocrLoading, setOcrLoading] = useState(false);
+
+  const API = "https://innovatrix-fakejobdetector.onrender.com";
+
   async function loadHistory() {
     setHistoryLoading(true);
     setHistoryMessage("");
-    setError("");
 
     try {
       const response = await fetch(`${API}/history`);
@@ -62,6 +69,120 @@ const API = "https://innovatrix-fakejobdetector.onrender.com";
     }
   }
 
+  function handleImageChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("PNG, JPG, JPEG, or WEBP image matrame upload cheyyi.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size 5 MB kanna takkuva undali.");
+      return;
+    }
+
+    setError("");
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setExtractedText("");
+    setResult(null);
+  }
+
+  async function extractTextFromImage() {
+    if (!imageFile) {
+      setError("Mundu job screenshot upload cheyyi.");
+      return;
+    }
+
+    setOcrLoading(true);
+    setError("");
+    setHistoryMessage("");
+    setExtractedText("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", imageFile);
+
+      const response = await fetch(`${API}/extract-text`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || data.error || "Text extraction failed."
+        );
+      }
+
+      setExtractedText(data.text || "");
+
+      if (!data.text?.trim()) {
+        throw new Error("Screenshot nunchi readable text dorakaledu.");
+      }
+
+      setHistoryMessage(
+        "Text extracted successfully! Analyze cheyyadaniki mundu review cheyyi."
+      );
+    } catch (err) {
+      setError(
+        err.message ||
+          "OCR failed. Backend lo Tesseract OCR configured undho check cheyyi."
+      );
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  async function analyzeText(text) {
+    if (!text.trim() || text.trim().length < 5) {
+      setError("Please enter at least 5 characters of job description.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setHistoryMessage("");
+    setResult(null);
+
+    try {
+      const response = await fetch(`${API}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_text: text.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.detail || data.error || "Analysis failed");
+      }
+
+      setResult(data);
+      await loadHistory();
+    } catch (err) {
+      setError(err.message || "Could not connect to backend.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function analyzeJob(event) {
+    event.preventDefault();
+    await analyzeText(jobText);
+  }
+
+  async function analyzeExtractedText() {
+    await analyzeText(extractedText);
+  }
+
   function downloadReport() {
     if (!result) return;
 
@@ -91,7 +212,10 @@ This is a preliminary AI assessment, not proof of fraud.
 Always verify the employer independently.
 `;
 
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([report], {
+      type: "text/plain;charset=utf-8",
+    });
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
@@ -103,39 +227,15 @@ Always verify the employer independently.
     URL.revokeObjectURL(url);
   }
 
-  async function analyzeJob(e) {
-    e.preventDefault();
-
-    setLoading(true);
-    setError("");
-    setHistoryMessage("");
-    setResult(null);
-
-    try {
-      const response = await fetch(`${API}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_text: jobText }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Analysis failed");
-      }
-
-      setResult(data);
-      await loadHistory();
-    } catch (err) {
-      setError(err.message || "Could not connect to backend.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
     loadHistory();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   return (
     <main className="app">
@@ -165,7 +265,7 @@ Always verify the employer independently.
           <textarea
             id="job"
             value={jobText}
-            onChange={(e) => setJobText(e.target.value)}
+            onChange={(event) => setJobText(event.target.value)}
             placeholder="Paste the complete job description here..."
             required
             minLength={5}
@@ -175,6 +275,75 @@ Always verify the employer independently.
             {loading ? "Analyzing..." : "Analyze Job →"}
           </button>
         </form>
+
+        <section className="analyzer" style={{ marginTop: "24px" }}>
+          <h2>Analyze Job Screenshot</h2>
+          <p className="subtitle">
+            Upload a screenshot of a job posting. OCR will extract its text
+            so you can review and analyze it.
+          </p>
+
+          <label htmlFor="jobScreenshot">
+            Choose screenshot (PNG, JPG, WEBP · Max 5 MB)
+          </label>
+
+          <input
+            id="jobScreenshot"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleImageChange}
+          />
+
+          {imagePreview && (
+            <div style={{ marginTop: "16px" }}>
+              <p>Screenshot preview</p>
+              <img
+                src={imagePreview}
+                alt="Uploaded job posting screenshot"
+                style={{
+                  display: "block",
+                  maxWidth: "100%",
+                  maxHeight: "350px",
+                  objectFit: "contain",
+                  borderRadius: "10px",
+                  marginBottom: "12px",
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={extractTextFromImage}
+                disabled={ocrLoading || loading}
+              >
+                {ocrLoading ? "Extracting Text..." : "Extract Text from Screenshot"}
+              </button>
+            </div>
+          )}
+
+          {extractedText && (
+            <div style={{ marginTop: "20px" }}>
+              <label htmlFor="extractedText">
+                Extracted Text (You can edit before analyzing)
+              </label>
+
+              <textarea
+                id="extractedText"
+                value={extractedText}
+                onChange={(event) => setExtractedText(event.target.value)}
+                rows={10}
+                style={{ marginTop: "8px" }}
+              />
+
+              <button
+                type="button"
+                onClick={analyzeExtractedText}
+                disabled={loading || ocrLoading || extractedText.trim().length < 5}
+              >
+                {loading ? "Analyzing..." : "Analyze Extracted Text →"}
+              </button>
+            </div>
+          )}
+        </section>
 
         {error && <p className="error">{error}</p>}
 
@@ -200,15 +369,15 @@ Always verify the employer independently.
 
             <h3>Warning Signals</h3>
             <ul>
-              {result.warning_signals?.map((item, i) => (
-                <li key={i}>{item}</li>
+              {(result.warning_signals || []).map((item, index) => (
+                <li key={index}>{item}</li>
               ))}
             </ul>
 
             <h3>Verification Tips</h3>
             <ul>
-              {result.verification_tips?.map((item, i) => (
-                <li key={i}>{item}</li>
+              {(result.verification_tips || []).map((item, index) => (
+                <li key={index}>{item}</li>
               ))}
             </ul>
 
@@ -228,9 +397,19 @@ Always verify the employer independently.
             </div>
 
             <div className="history-actions">
-              
+              <button
+                type="button"
+                onClick={loadHistory}
+                disabled={historyLoading}
+              >
+                {historyLoading ? "Refreshing..." : "Refresh History"}
+              </button>
 
-              <button type="button" onClick={clearHistory}>
+              <button
+                type="button"
+                onClick={clearHistory}
+                disabled={historyLoading}
+              >
                 Clear History
               </button>
             </div>
