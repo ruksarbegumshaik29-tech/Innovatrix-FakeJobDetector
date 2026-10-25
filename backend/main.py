@@ -11,15 +11,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 
-# Windows local Tesseract path
-# Render lo environment variable set cheyyachu
-
+# Tesseract OCR configuration
+# Render Docker lo "tesseract" command use avutundi
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "tesseract")
-pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
-
-    "TESSERACT_CMD",
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
 
@@ -156,7 +150,7 @@ def analyze(data: dict):
     }
 
 
-# NEW: Screenshot upload + OCR text extraction
+# Screenshot upload + OCR text extraction
 @app.post("/extract-text")
 async def extract_text_from_image(
     file: UploadFile = File(...)
@@ -235,7 +229,7 @@ async def extract_text_from_image(
         await file.close()
 
 
-# Existing recent scan history
+# Recent scan history
 @app.get("/history")
 def history():
     with sqlite3.connect(DB_PATH) as conn:
@@ -260,7 +254,7 @@ def history():
     ]
 
 
-# Existing clear history
+# Clear history
 @app.delete("/history")
 def clear_history():
     with sqlite3.connect(DB_PATH) as conn:
