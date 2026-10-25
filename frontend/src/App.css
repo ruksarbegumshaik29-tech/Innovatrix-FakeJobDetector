@@ -1,0 +1,356 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, "Segoe UI", sans-serif;
+  background: #f5f7fc;
+  color: #17213d;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 8%;
+  background: white;
+  border-bottom: 1px solid #e7eaf2;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: #5546d9;
+  color: white;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.topbar h2 {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: 1px;
+}
+
+.topbar p {
+  margin: 3px 0 0;
+  color: #737d95;
+  font-size: 12px;
+}
+
+.hero {
+  width: min(760px, 92%);
+  margin: 65px auto;
+}
+
+.eyebrow {
+  color: #5546d9;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+h1 {
+  font-size: clamp(34px, 6vw, 53px);
+  line-height: 1.12;
+  margin: 18px 0;
+  letter-spacing: -1.5px;
+}
+
+h1 span {
+  color: #5546d9;
+}
+
+.subtitle {
+  color: #68738b;
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+
+.analyzer,
+.result {
+  padding: 25px;
+  border: 1px solid #e6e8f2;
+  border-radius: 20px;
+  background: white;
+  box-shadow: 0 12px 35px #20284a0b;
+}
+
+.analyzer label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 15px;
+  border: 1px solid #d9ddec;
+  border-radius: 12px;
+  font: inherit;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: 2px solid #b7afff;
+  border-color: #5546d9;
+}
+
+button {
+  width: 100%;
+  margin-top: 15px;
+  padding: 15px;
+  border: 0;
+  border-radius: 11px;
+  background: #5546d9;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.result {
+  margin-top: 24px;
+  overflow-wrap: anywhere;
+}
+
+.high {
+  color: #c52d43;
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.low {
+  color: #198754;
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.result li {
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.notice,
+.disclaimer {
+  color: #707a91;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.error {
+  color: #c52d43;
+  font-weight: 600;
+}
+
+.disclaimer {
+  text-align: center;
+  margin-top: 25px;
+}
+
+@media (max-width: 600px) {
+  .hero {
+    margin: 40px auto;
+  }
+
+  .analyzer,
+  .result {
+    padding: 18px;
+  }
+  
+.history {
+  margin-top: 32px;
+  padding: 24px;
+  background: white;
+  border: 1px solid #e6e8f2;
+  border-radius: 20px;
+  box-shadow: 0 12px 35px #20284a0b;
+}
+
+.history-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.history-heading h2 {
+  margin: 8px 0 0;
+}
+
+.history-heading button {
+  width: auto;
+  margin: 0;
+  padding: 10px 16px;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid #e6e8f2;
+}
+
+.history-item strong {
+  overflow-wrap: anywhere;
+}
+
+.history-item p {
+  color: #737d95;
+  font-size: 12px;
+}
+
+.history-item .high,
+.history-item .low {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+/* Improved scan history layout */
+.history {
+  text-align: left;
+}
+
+.history-heading {
+  align-items: center;
+}
+
+.history-heading button {
+  width: auto;
+  min-width: 100px;
+  padding: 11px 18px;
+  margin: 0;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 0;
+  border-top: 1px solid #e6e8f2;
+}
+
+.history-item > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.history-item p {
+  margin: 7px 0 0;
+  color: #737d95;
+  font-size: 12px;
+}
+
+.history-item .high,
+.history-item .low {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #f0f2f8;
+  white-space: nowrap;
+}
+
+.history-item .high {
+  color: #c52d43;
+  background: #fff0f2;
+}
+
+.history-item .low {
+  color: #198754;
+  background: #eaf8f0;
+}
+
+@media (max-width: 600px) {
+  .history {
+    padding: 16px;
+  }
+
+  .history-item {
+    gap: 10px;
+  }
+}
+
+}
+/* INNOVATRIX - Improved Result Card */
+
+.result {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid #e5dff5;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 8px 28px rgba(60, 40, 100, 0.08);
+  text-align: left;
+}
+
+.result h2 {
+  margin-top: 0;
+  color: #29213d;
+}
+
+.result h3 {
+  margin-top: 22px;
+  color: #49366d;
+}
+
+.result .high,
+.result .low {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.result .high {
+  color: #a61b1b;
+  background: #ffe7e7;
+}
+
+.result .low {
+  color: #176b43;
+  background: #e4f8ed;
+}
+
+.result ul {
+  padding-left: 22px;
+  line-height: 1.8;
+}
+
+.result li {
+  margin-bottom: 8px;
+}
+
+.result .notice {
+  padding: 12px;
+  border-radius: 10px;
+  background: #f5f2fb;
+  color: #5b526c;
+  font-size: 13px;
+  line-height: 1.6;
+}

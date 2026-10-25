@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+backend/scans.db
+.env
+backend/train.csv
