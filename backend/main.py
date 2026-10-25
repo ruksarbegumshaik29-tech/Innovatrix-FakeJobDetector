@@ -13,7 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Windows local Tesseract path
 # Render lo environment variable set cheyyachu
-TESSERACT_CMD = os.getenv(
+
+TESSERACT_CMD = os.getenv("TESSERACT_CMD", "tesseract")
+pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+
     "TESSERACT_CMD",
     r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 )
