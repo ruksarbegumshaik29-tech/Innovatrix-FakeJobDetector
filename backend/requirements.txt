@@ -1,5 +1,9 @@
+
 fastapi
 uvicorn
 scikit-learn
 pandas
 numpy
+pytesseract
+Pillow
+python-multipart
