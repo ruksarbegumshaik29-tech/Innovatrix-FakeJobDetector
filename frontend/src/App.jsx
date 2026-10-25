@@ -10,9 +10,7 @@ function App() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
-
-  const API = "http://127.0.0.1:8000";
-
+const API = "https://innovatrix-fakejobdetector.onrender.com";
   async function loadHistory() {
     setHistoryLoading(true);
     setHistoryMessage("");
