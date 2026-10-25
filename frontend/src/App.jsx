@@ -17,7 +17,8 @@ function App() {
   const [extractedText, setExtractedText] = useState("");
   const [ocrLoading, setOcrLoading] = useState(false);
 
-  const API = "https://innovatrix-fakejobdetector.onrender.com";
+const API = "https://nnovatrix-fakejob-detector-ocr-2026.onrender.com";
+
 
   async function loadHistory() {
     setHistoryLoading(true);
