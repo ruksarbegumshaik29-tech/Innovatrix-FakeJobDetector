@@ -1,151 +1,4 @@
-
-import io
-import os
-import sqlite3
-from datetime import datetime
-
-import joblib
-import pytesseract
-from PIL import Image, ImageOps, ImageFilter
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-
-
-# --------------------------------------------------
-# TESSERACT OCR CONFIGURATION
-# --------------------------------------------------
-
-TESSERACT_CMD = os.getenv("TESSERACT_CMD", "tesseract")
-pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
-
-OCR_MAX_SIZE = 5 * 1024 * 1024  # 5 MB
-OCR_MAX_DIMENSION = 1800
-OCR_FIRST_TIMEOUT = 20
-OCR_RETRY_TIMEOUT = 15
-
-
-# --------------------------------------------------
-# FASTAPI APPLICATION
-# --------------------------------------------------
-
-app = FastAPI(title="INNOVATRIX Fake Job Detector")
-
-
-# --------------------------------------------------
-# CORS CONFIGURATION
-# --------------------------------------------------
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://innovatrix-fakejob-frontend.onrender.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# --------------------------------------------------
-# PATHS
-# --------------------------------------------------
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-MODEL_PATH = os.path.join(BASE_DIR, "job_model.pkl")
-DB_PATH = os.path.join(BASE_DIR, "scans.db")
-
-
-# --------------------------------------------------
-# LOAD MACHINE LEARNING MODEL
-# --------------------------------------------------
-
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(
-        f"ML model not found at: {MODEL_PATH}"
-    )
-
-model = joblib.load(MODEL_PATH)
-
-
-# --------------------------------------------------
-# DATABASE INITIALIZATION
-# --------------------------------------------------
-
-def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS scans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                job_text TEXT,
-                label TEXT,
-                risk_level TEXT,
-                created_at TEXT
-            )
-        """)
-
-
-init_db()
-
-
-# --------------------------------------------------
-# HOME ROUTE
-# --------------------------------------------------
-
-@app.get("/")
-def home():
-    return {
-        "message": "INNOVATRIX backend is running!"
-    }
-
-
-# --------------------------------------------------
-# HEALTH CHECK
-# --------------------------------------------------
-
-@app.get("/health")
-def health():
-    return {
-        "status": "ok"
-    }
-
-
-# --------------------------------------------------
-# JOB DESCRIPTION ANALYSIS
-# --------------------------------------------------
-
-@app.post("/analyze")
-def analyze(data: dict):
-    job_text = data.get("job_text", "").strip()
-
-    if not job_text:
-        raise HTTPException(
-            status_code=400,
-            detail="Please enter a job description."
-        )
-
-    try:
-        prediction = int(model.predict([job_text])[0])
-
-        probabilities = model.predict_proba([job_text])[0]
-        classes = [int(c) for c in model.classes_]
-
-        if 1 not in classes:
-            raise HTTPException(
-                status_code=500,
-                detail="The ML model does not contain the suspicious class."
-            )
-
-        score = float(probabilities[classes.index(1)])
-
-    except HTTPException:
-        raise
-
-    except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail="Job analysis failed. Please try again."
+            detail="Job analysis failed. Please try again.",
         )
 
     if prediction == 1:
@@ -154,8 +7,6 @@ def analyze(data: dict):
     else:
         label = "lower_risk"
         risk = "Lower"
-
-    warnings = []
 
     warning_phrases = [
         "registration fee",
@@ -167,11 +18,11 @@ def analyze(data: dict):
 
     lower_text = job_text.lower()
 
-    for phrase in warning_phrases:
-        if phrase in lower_text:
-            warnings.append(
-                f"Suspicious phrase detected: {phrase}"
-            )
+    warnings = [
+        f"Suspicious phrase detected: {phrase}"
+        for phrase in warning_phrases
+        if phrase in lower_text
+    ]
 
     if not warnings:
         warnings.append(
@@ -179,19 +30,25 @@ def analyze(data: dict):
             "Verify the employer independently."
         )
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            INSERT INTO scans
-            (job_text, label, risk_level, created_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                job_text,
-                label,
-                risk,
-                datetime.now().isoformat(),
-            ),
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                """
+                INSERT INTO scans
+                (job_text, label, risk_level, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    job_text,
+                    label,
+                    risk,
+                    datetime.now().isoformat(),
+                ),
+            )
+    except sqlite3.Error:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save scan history.",
         )
 
     return {
@@ -202,7 +59,7 @@ def analyze(data: dict):
         "verification_tips": [
             "Check the official company careers website.",
             "Verify the recruiter email and company identity.",
-            "Do not pay money to obtain a job or internship.",
+            "Never pay money to obtain a job or internship.",
         ],
         "notice": (
             "Preliminary AI assessment only; "
@@ -211,19 +68,11 @@ def analyze(data: dict):
     }
 
 
-# --------------------------------------------------
+# ==================================================
 # OCR IMAGE PREPROCESSING
-# --------------------------------------------------
+# ==================================================
 
 def prepare_ocr_image(image: Image.Image) -> Image.Image:
-    """
-    Prepare screenshots for OCR:
-    - Convert to grayscale
-    - Resize excessively large images
-    - Improve contrast
-    - Apply light sharpening
-    """
-
     image = ImageOps.exif_transpose(image)
     image = image.convert("RGB")
 
@@ -239,13 +88,13 @@ def prepare_ocr_image(image: Image.Image) -> Image.Image:
     return processed
 
 
-# --------------------------------------------------
-# OCR TEXT EXTRACTION
-# --------------------------------------------------
+# ==================================================
+# EXTRACT TEXT FROM SCREENSHOT
+# ==================================================
 
 @app.post("/extract-text")
 async def extract_text_from_image(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
 ):
     allowed_types = {
         "image/png",
@@ -258,7 +107,8 @@ async def extract_text_from_image(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Upload a PNG, JPG, JPEG, or WEBP screenshot."
+                    "Upload a PNG, JPG, JPEG, "
+                    "or WEBP screenshot."
                 ),
             )
 
@@ -277,126 +127,34 @@ async def extract_text_from_image(
             )
 
         try:
-            with Image.open(io.BytesIO(image_bytes)) as source:
+            with Image.open(
+                io.BytesIO(image_bytes)
+            ) as source:
                 source.load()
                 image = source.copy()
 
-        except Exception:
+        except (
+            UnidentifiedImageError,
+            OSError,
+            ValueError,
+        ):
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "Invalid or unsupported image. "
-                    "Please upload another screenshot."
+                    "Invalid image. Please upload "
+                    "a clear screenshot."
                 ),
             )
 
         processed = prepare_ocr_image(image)
 
-        # First pass: useful for screenshots containing
-        # text blocks in different positions.
+        # Temporary diagnostic logs for Render OCR troubleshooting.
+        print("OCR IMAGE SIZE:", image.size, flush=True)
+        print("OCR PROCESSED SIZE:", processed.size, flush=True)
+        print("TESSERACT PATH:", pytesseract.pytesseract.tesseract_cmd, flush=True)
         try:
-            extracted_text = pytesseract.image_to_string(
-                processed,
-                lang="eng",
-                config="--oem 3 --psm 11",
-                timeout=OCR_FIRST_TIMEOUT,
-            ).strip()
+            print("TESSERACT VERSION:", pytesseract.get_tesseract_version(), flush=True)
+        except Exception as exc:
+            print("TESSERACT VERSION ERROR:", repr(exc), flush=True)
 
-        except RuntimeError:
-            extracted_text = ""
-
-        # Retry only if the first pass found very little text.
-        if len(extracted_text) < 15:
-            try:
-                retry_text = pytesseract.image_to_string(
-                    processed,
-                    lang="eng",
-                    config="--oem 3 --psm 6",
-                    timeout=OCR_RETRY_TIMEOUT,
-                ).strip()
-
-                if len(retry_text) > len(extracted_text):
-                    extracted_text = retry_text
-
-            except RuntimeError:
-                pass
-
-        if not extracted_text:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "No readable text found. "
-                    "Try a clearer screenshot with larger text."
-                ),
-            )
-
-        return {
-            "text": extracted_text,
-            "filename": file.filename,
-        }
-
-    except HTTPException:
-        raise
-
-    except pytesseract.TesseractNotFoundError:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Tesseract OCR is unavailable. "
-                "Check the server OCR installation."
-            ),
-        )
-
-    except Exception:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Could not read this image. "
-                "Please try another screenshot."
-            ),
-        )
-
-    finally:
-        await file.close()
-
-
-# --------------------------------------------------
-# RECENT SCAN HISTORY
-# --------------------------------------------------
-
-@app.get("/history")
-def history():
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute(
-            """
-            SELECT id, job_text, label, risk_level, created_at
-            FROM scans
-            ORDER BY id DESC
-            LIMIT 20
-            """
-        ).fetchall()
-
-    return [
-        {
-            "id": row[0],
-            "job_text": row[1],
-            "label": row[2],
-            "risk_level": row[3],
-            "created_at": row[4],
-        }
-        for row in rows
-    ]
-
-
-# --------------------------------------------------
-# CLEAR SCAN HISTORY
-# --------------------------------------------------
-
-@app.delete("/history")
-def clear_history():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM scans")
-
-    return {
-        "message": "Scan history cleared successfully"
-    }
+        extracted_text = ""
