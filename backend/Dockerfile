@@ -2,7 +2,9 @@
 FROM python:3.12-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr \
+    && apt-get install -y --no-install-recommends \
+       tesseract-ocr \
+       tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -14,4 +16,6 @@ COPY . .
 
 ENV TESSERACT_CMD=/usr/bin/tesseract
 
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}
+RUN tesseract --version && tesseract --list-langs
+
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]
