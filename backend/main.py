@@ -19,8 +19,8 @@ pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
 OCR_MAX_SIZE = 5 * 1024 * 1024
 OCR_MAX_DIMENSION = 1800
-OCR_FIRST_TIMEOUT = 20
-OCR_RETRY_TIMEOUT = 15
+OCR_FIRST_TIMEOUT = 25
+OCR_RETRY_TIMEOUT = 25
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "job_model.pkl")
@@ -225,14 +225,14 @@ def prepare_ocr_image(image: Image.Image) -> Image.Image:
     image = ImageOps.exif_transpose(image)
     image = image.convert("RGB")
 
-    image.thumbnail(
-        (OCR_MAX_DIMENSION, OCR_MAX_DIMENSION),
-        Image.Resampling.LANCZOS,
-    )
+    # Reduce image size so OCR runs faster
+    image.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
 
     processed = ImageOps.grayscale(image)
     processed = ImageOps.autocontrast(processed)
-    processed = processed.filter(ImageFilter.SHARPEN)
+    processed = processed.point(
+        lambda pixel: 255 if pixel > 160 else 0
+    )
 
     return processed
 
